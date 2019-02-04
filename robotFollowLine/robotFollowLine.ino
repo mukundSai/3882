@@ -27,6 +27,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+
   travelStraight();
   findLine();
   delay(3000);
@@ -48,6 +49,23 @@ void travelStraight() {
   goStraight();
   
   stopMotors();
+}
+
+void checkForObstacle(long distance) {
+  //read ultrasonic sensor and if object within the distance then turn
+  if (readUltrasonicSensor() < distance) {
+    turn();
+  }
+}
+
+void turn() {
+  Serial.println("turning");
+  turnCCW(500);
+  int time = 1000;
+  for (int i = 0; i <= time; i++) {
+      if(readColor() == 'b') break;
+      turnCCW(1);
+    }
 }
 
 void findLine(){
@@ -73,7 +91,7 @@ void findLine(){
 void followLine(){
   int counter = 0;
   while (true){
-    //checkForObstacle(7);
+    checkForObstacle(16);
     switch (readColor()){
       case 'b':
         goStraight();
@@ -186,3 +204,28 @@ int readLightSensor() {
 //  Serial.println(val);
   return average(buff, 20);
 }
+
+ long readUltrasonicSensor() {
+  int trigPin = 11;    // Trigger
+  int echoPin = 12;    // Echo
+  long duration, cm;
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  delay(250);
+  // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
+  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(5);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+ 
+  // Read the signal from the sensor: a HIGH pulse whose
+  // duration is the time (in microseconds) from the sending
+  // of the ping to the reception of its echo off of an object.
+  pinMode(echoPin, INPUT);
+  duration = pulseIn(echoPin, HIGH);
+  // Convert the time into a distance
+  cm = (duration/2.0) / 29.1;     // Divide by 29.1 or multiply by 0.0343
+  return cm;
+ }
