@@ -28,6 +28,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+  calibrate();
   travelStraight();
   findLine();
   delay(3000);
@@ -37,9 +38,9 @@ void loop() {
 void calibrate() {
   
   // calibrate light sensor variables
-  whiteLightVal = readLightSensor();
-  greyLightVal = whiteLightVal + 50;
-  blackLightVal = whiteLightVal + 100;
+  whiteLightVal = 35;
+  greyLightVal = 45;
+  blackLightVal = 120;
 }
 
 void travelStraight() {
@@ -102,12 +103,13 @@ void followLine(){
         counter = 0;
       case 'g':
         counter++;
-        if(counter >= 10) {
+        if(confirmGrey() && counter >= 4) {
           stopMotors();
           Serial.println("stopped");
           delay(4000);
+          counter = 0;   
+        } else if (counter >= 4) {
           counter = 0;
-          
         }
         
       default:
@@ -116,9 +118,19 @@ void followLine(){
   }
 }
 
+boolean confirmGrey() {
+  turnCW(150);
+  int val1 = readColor();
+  turnCCW(300);
+  int val2 = readColor();
+  turnCW(150);
+  return val1 == val2 && val1 == 'g';
+}
+
 void goBacktoBlack() {
   stopMotors();
   int time = 1;
+ 
   while(readColor() != 'b') {
     
     for (int i = 0; i <= time; i++) {
@@ -134,6 +146,11 @@ void goBacktoBlack() {
     }
     time *= 2;
     if(readColor() == 'b') break;
+
+    if (time > 31) {
+      stopMotors();
+      delay(50000);
+    }
     
   }
   
@@ -191,6 +208,34 @@ char readColor() {
   return 'w';
   return 'b';
 }
+//
+//int readColor() {
+//  //1 if black
+//  //2 if grey
+//  //3 if white
+//  int color = readLightSensor();
+//  //Serial.println(color);
+//  int black = abs(color - blackLightVal);
+//  int white = abs(color - whiteLightVal);
+//  int grey = abs(color - greyLightVal);
+//
+//  if (black < white && black < grey) {
+//    Serial.print('b');
+//    Serial.println(color);
+//    return 'b';
+//    
+//  } else if (grey < white && grey < black) {
+//    Serial.print('w');
+//    Serial.println(color);
+//    return 'g';
+//    
+//  } else {
+//    Serial.print('w');
+//    Serial.println(color);
+//    return 'w';
+//    
+//  }
+//}
 
 int readLightSensor() {
 
