@@ -27,7 +27,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-
+ 
   calibrate();
   travelStraight();
   findLine();
@@ -147,14 +147,35 @@ void goBacktoBlack() {
     time *= 2;
     if(readColor() == 'b') break;
 
-    if (time > 31) {
+    if (time > 63) {
       stopMotors();
-      delay(50000);
+      delay(10000);
+      endRun();
     }
     
   }
   
 }
+
+int readTouchSensor() {
+  int val = 0;
+  delay(100);
+  val = analogRead(A1);
+  if (val != 0) {
+    val = 1;
+  }
+  
+  return val;
+}
+
+void endRun() {
+  while(readTouchSensor()) {
+    
+  }
+  turn();
+}
+
+
 
 ///// Helper functions //////////////////////////////////////////////////////////////////////
 
@@ -201,7 +222,10 @@ char readColor() {
 //    return 'g';
 //  }
 
+  
+
   int color = readLightSensor();
+  Serial.println(color);
   if (color < 50)
   return 'w';
   if (color < 80)
