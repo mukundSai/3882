@@ -1,14 +1,5 @@
 #include <DRV8835MotorShield.h>
 
-// ranges:
-// (350 - 360) -> white
-// (400 - 450) -> grey
-// (450+) -> black
-
-// < 50 white
-// < 80 grey
-// > 300 black
-
 DRV8835MotorShield motors;
 
 // Global variables
@@ -16,40 +7,44 @@ int whiteLightVal;
 int greyLightVal;
 int blackLightVal;
 
-int period = 100;
-unsigned long time_now = millis();
-
 void setup() {
-  // put your setup code here, to run once:
+  
+  // bound rate for serial in/out
   Serial.begin(9600);
-  //calibrate();
+  // light sensor calibration
+  calibrate();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
- 
-  calibrate();
+  
   travelStraight();
   findLine();
-  delay(3000);
   followLine();
 }
 
 void calibrate() {
   
-  // calibrate light sensor variables
-  whiteLightVal = 35;
-  greyLightVal = 45;
-  blackLightVal = 120;
+  // white
+  whiteLightVal = readLightSensor(100);
+  goStraight(20);
+  stopMotors(100);
+  // black
+  blackLightVal = readLightSensor(100);
+  goStraight(20);
+  stopMotors(100);
+  // grey
+  greyLightVal = readLightSensor(100);
+  goStraight(20);
+  stopMotors(100);
 }
 
 void travelStraight() {
   
-  //go till black line by enabling motor
+  // go till black line by enabling motor
   while(readColor() != 'b')
-  goStraight();
-  
-  stopMotors();
+  goStraight(20);
+  // stop for reference
+  stopMotors(100);
 }
 
 void checkForObstacle(long distance) {
@@ -73,47 +68,53 @@ void findLine(){
   
   // go foward until you find white
   while (readColor() != 'w')
-  goStraight();
-  stopMotors();
+  goStraight(20);
+  stopMotors(100);
   // turn CCW until you find black
   while (readColor() != 'b')
   turnCCW(2);
-  stopMotors();
-
-  time_now = millis();
-  period = 100;
-  while (millis() < time_now + period){
-    turnCCW(2);
-  }
-  stopMotors();
+  stopMotors(100);
+  // pause for reference
+  turnCCW(2);
+  stopMotors(100);
 }
 
-
-void followLine(){
+void followLine() {
+  
+  // keep track of greys detected
   int counter = 0;
+
+  // perpetual loop
   while (true){
+
+    // check for obstacle
     checkForObstacle(16);
+
+    // if no obstacle -> move according to color detected
     switch (readColor()){
+      // black
       case 'b':
-        goStraight();
+        goStraight(20);
         counter = 0;
         break;
+      // white
       case 'w':
         goBacktoBlack();
         counter = 0;
+      // grey
       case 'g':
         counter++;
-        if(confirmGrey() && counter >= 4) {
-          stopMotors();
-          Serial.println("stopped");
-          delay(4000);
+        // given 3 greys -> call confirmGrey()
+        if(counter >= 4 && confirmGrey()) {
+          stopMotors(100);
+          waitForTouchSensor();
           counter = 0;   
         } else if (counter >= 4) {
           counter = 0;
         }
-        
       default:
-        goStraight();
+        // go straight by default
+        goStraight(20);
     }
   }
 }
@@ -128,9 +129,9 @@ boolean confirmGrey() {
 }
 
 void goBacktoBlack() {
-  stopMotors();
+  
+  stopMotors(100);
   int time = 1;
- 
   while(readColor() != 'b') {
     
     for (int i = 0; i <= time; i++) {
@@ -146,36 +147,8 @@ void goBacktoBlack() {
     }
     time *= 2;
     if(readColor() == 'b') break;
-
-    if (time > 63) {
-      stopMotors();
-      delay(10000);
-      endRun();
-    }
-    
   }
-  
 }
-
-int readTouchSensor() {
-  int val = 0;
-  delay(100);
-  val = analogRead(A1);
-  if (val != 0) {
-    val = 1;
-  }
-  
-  return val;
-}
-
-void endRun() {
-  while(readTouchSensor()) {
-    
-  }
-  turn();
-}
-
-
 
 ///// Helper functions //////////////////////////////////////////////////////////////////////
 
@@ -191,16 +164,16 @@ void turnCCW(int time) {
   delay(time);
 }
 
-void goStraight() {
+void goStraight(int time) {
   motors.setM1Speed(200);
   motors.setM2Speed(200);
-  delay(2);
+  delay(time);
 }
 
-void stopMotors(){
+void stopMotors(int time){
   motors.setM1Speed(0);
   motors.setM2Speed(0);
-  delay(2);
+  delay(time);
 }
 
 int average (int * array, int len) {
@@ -213,68 +186,51 @@ int average (int * array, int len) {
 
 char readColor() {
 
-//  int color = readLightSensor();
-//  if (abs(color - whiteLightVal) > 100) {
-//    return 'b';
-//  } else if (abs(color - whiteLightVal) < 20) {
-//    return 'w';
-//  } else {
-//    return 'g';
-//  }
+  int color = readLightSensor(20);
+  int black = abs(color - blackLightVal);
+  int white = abs(color - whiteLightVal);
+  int grey = abs(color - greyLightVal);
 
-  
-
-  int color = readLightSensor();
-  Serial.println(color);
-  if (color < 50)
-  return 'w';
-  if (color < 80)
-  return 'w';
-  return 'b';
+  if (black < white && black < grey) {
+    return 'w';
+  } else if (grey < white && grey < black) {
+    return 'g';
+  } else {
+    return 'b';
+  }
 }
-//
-//int readColor() {
-//  //1 if black
-//  //2 if grey
-//  //3 if white
-//  int color = readLightSensor();
-//  //Serial.println(color);
-//  int black = abs(color - blackLightVal);
-//  int white = abs(color - whiteLightVal);
-//  int grey = abs(color - greyLightVal);
-//
-//  if (black < white && black < grey) {
-//    Serial.print('b');
-//    Serial.println(color);
-//    return 'b';
-//    
-//  } else if (grey < white && grey < black) {
-//    Serial.print('w');
-//    Serial.println(color);
-//    return 'g';
-//    
-//  } else {
-//    Serial.print('w');
-//    Serial.println(color);
-//    return 'w';
-//    
-//  }
-//}
 
-int readLightSensor() {
+void waitForTouchSensor() {
 
-  // return average of 5 messuragents
-  int buff[20];
-  for (int i = 0; i < 20; i++) {
+  // wait until touch sensor is pressed
+  // pressed == 0
+  while(readTouchSensor()) {
+  
+  }
+}
+
+int readLightSensor(int len) {
+
+  // return average of len messuragents
+  int buff[len];
+  for (int i = 0; i < len; i++) {
     buff[i] = analogRead(A0);
     delay(2);
   }
-//  int val = average(buff, 20);
-//  Serial.println(val);
-  return average(buff, 20);
+  return average(buff, len);
 }
 
- long readUltrasonicSensor() {
+int readTouchSensor() {
+  int val = 0;
+  delay(100);
+  val = analogRead(A1);
+  if (val != 0) {
+    val = 1;
+  }
+  return val;
+}
+
+long readUltrasonicSensor() {
   int trigPin = 11;    // Trigger
   int echoPin = 12;    // Echo
   long duration, cm;
@@ -297,4 +253,4 @@ int readLightSensor() {
   // Convert the time into a distance
   cm = (duration/2.0) / 29.1;     // Divide by 29.1 or multiply by 0.0343
   return cm;
- }
+}
